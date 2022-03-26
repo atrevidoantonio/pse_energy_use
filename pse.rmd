@@ -1,0 +1,305 @@
+---
+title: "Electricity Usage"
+output:
+  html_document:
+fig_height: 5
+fig_width: 7
+fig_caption: true
+fontsize: 11pt
+urlcolor: blue
+linkcolor: blue
+geometry: width = 175mm, top = 10mm, bottom = 20mm
+theme: cosmo
+runtime: shiny
+---
+
+```{r setup, echo = FALSE, include = FALSE}
+library(knitr)
+library(ggplot2)
+library(tinytex)
+library(ggthemes)
+library(boot)
+library(M3)
+library(hms)
+library(data.table)
+library(ggthemr)
+library(tidyverse)
+library(dplyr)
+library(plotly)
+library(wesanderson)
+library(scales)
+library(tidyr)
+library(purrr)
+library(hrbrthemes)
+library(viridis)
+library(lubridate)
+library(zoo)
+library(readr)
+library(shiny)
+```
+
+```{r global options, include = FALSE}
+knitr::opts_chunk$set(echo = FALSE, warning = FALSE, message = FALSE)
+```
+
+```{r theme}
+raspberry <- "#DB2955"
+babyblue <- "#47AFFF"
+prussian <- "#113255"
+sapphire <- "#255F85"
+mint <- "#B2EDC5"
+celadon <- "#5F8DBF"
+viridian <- "#5A876F"
+khaki <- "#9fae84"
+turq <- "#76E7CD"
+emerald <- "#32936F"
+colombia <- "#C7E8F3"
+violet <- "#AA78A6"
+jeans <- "#418B82"
+sparkle <- "#2F5075"
+sky <- "#ABDDED"
+pale_mint <- "#73BFB0"
+jungle <- "#193832"
+amazon <- "#317658"
+bedazzled <- "#1E569B"
+tumbleweed <- '#D0A98F'
+french <- '#8DBCF7'
+mountbatten <- '#957D95'
+cranberry <-  '#c10534'
+lapis <- '#38618C'
+tuscan <- "#804E49"
+dark_emerald <- '#2d6d66'
+blue_crayola <- '#3C89CD'
+english_violet <- '#3D314A'
+eggplant <- '#684756'
+raspberry <- '#DB2955'
+saffron <- '#F49D37'
+sugar_plum <- '#8C547C'
+solid_pink <- '#873D48'
+turquoise <- '#76E7CD'
+cherry <- '#B4415C'
+lilac <- '#6F5A87'
+maroon <- '#90353B'
+onyx <- '#313435'
+charcoal <- '#646867'
+slate <- '#595F5A'
+burnished.brown <- '#AB8476'
+
+cools <-
+  c(
+    pale_mint,
+    emerald,
+    colombia,
+    sapphire,
+    khaki,
+    sparkle,
+    amazon,
+    sky,
+    turq,
+    bedazzled,
+    viridian,
+    prussian,
+    jungle
+  )
+
+bupr <- c(french, prussian, lilac, english_violet, sapphire, burnished.brown, turquoise)
+
+```
+
+```{r data}
+
+usage <- read_csv('./data/usage_summarized.csv') %>% %>%
+  mutate(season = factor(season, levels = c('Fall', 'Winter', 'Spring', 'Summer')),
+         weekday = factor(weekday, levels = days))
+usage_data <- read_csv('./data/usage_data.csv') %>%
+  mutate(season = factor(season, levels = c('Fall', 'Winter', 'Spring', 'Summer')),
+         weekday = factor(weekday, levels = days))
+weather <-
+  read_csv('./data/temps_seattle.csv') %>% select(date, precp, tmax, tmin)
+weather <- mutate(weather, date = mdy(date))
+days <-
+  c('Monday',
+    'Tuesday',
+    'Wednesday',
+    'Thursday',
+    'Friday',
+    'Saturday',
+    'Sunday')
+
+
+```
+
+```{r fig1, fig.align="center"}
+
+dplyr::group_by(usage_data, date) %>%
+  summarize(usage = sum(usage, na.rm = TRUE)) %>%
+  ungroup() %>%
+  ggplot(aes(x = date, y = usage)) +
+  geom_jitter(color = sapphire, size = 0.75) +
+  stat_smooth(color = sapphire, size = 0.75, se = FALSE) +
+  theme_minimal() +
+  theme(
+    text = element_text(
+      family = 'Roboto Condensed',
+      color = 'black',
+      size = 12
+    ),
+    plot.caption = element_text(hjust = 0.5, size = 10.5),
+    legend.position = 'bottom',
+    axis.ticks.length = unit(.25, 'cm')
+  ) +
+  scale_x_date(date_labels = '%B, %Y') + 
+  scale_y_continuous(labels = number_format(), breaks = seq(0, 120, by = 20)) +
+  labs(x = '', y = 'Usage (Kilowatts)\n')
+```
+
+```{r fig2, fig.align="center"}
+
+dplyr::group_by(usage_data, date) %>%
+  summarize(usage = sum(usage, na.rm = TRUE)) %>%
+  ungroup() %>%
+  left_join(weather, by = 'date') %>% 
+  ggplot(aes(x = tmax, y = usage)) +
+  geom_jitter(color = sapphire, size = 0.75) +
+  stat_smooth(color = sapphire, size = 0.75, se = FALSE) +
+  theme_minimal() +
+  theme(
+    text = element_text(
+      family = 'Roboto Condensed',
+      color = 'black',
+      size = 12
+    ),
+    plot.caption = element_text(hjust = 0.5, size = 10.5),
+    legend.position = 'bottom',
+    axis.ticks.length = unit(.25, 'cm')
+  ) +
+  scale_x_continuous(breaks = seq(0, 120, by = 10)) + 
+  scale_y_continuous(labels = number_format(), breaks = seq(0, 120, by = 20)) +
+  labs(x = '\nDaily max temperature', y = 'Usage (KwH)\n')
+```
+
+```{r fig3, fig.align="center"}
+dplyr::group_by(usage_data, hour, time_local, season) %>%
+  summarize(usage = mean(usage, na.rm = TRUE)) %>%
+  ungroup() %>%
+  ggplot(aes(x = as.POSIXct(time_local, tz = 'America/Los_Angeles'), y = usage, color = factor(season))) +
+  geom_smooth(size = 0.5, se = FALSE) +
+  theme_minimal() +
+  theme(
+    text = element_text(
+      family = 'Roboto Condensed',
+      color = 'black',
+      size = 12
+    ),
+    plot.caption = element_text(hjust = 0.5, size = 10.5),
+    legend.position = 'bottom',
+    axis.ticks.length = unit(.25, 'cm')
+  ) +
+  scale_x_datetime(date_labels = '%l') +
+  scale_y_continuous(labels = number_format()) +
+  scale_color_manual('', values = bupr) +
+  labs(x = '', y = 'Usage (KwH\n')
+
+```
+
+```{r fig4, fig.align="center"}
+
+dplyr::group_by(usage_data, hour, time_local, weekday) %>%
+  summarize(usage = mean(usage, na.rm = TRUE)) %>%
+  ungroup() %>%
+  ggplot(aes(x = as.POSIXct(time_local, tz = 'America/Los_Angeles'), y = usage, color = factor(weekday))) +
+  geom_smooth(size = 0.5, se = FALSE) +
+  theme_minimal() +
+  theme(
+    text = element_text(
+      family = 'Roboto Condensed',
+      color = 'black',
+      size = 12
+    ),
+    plot.caption = element_text(hjust = 0.5, size = 10.5),
+    legend.position = 'bottom',
+    axis.ticks.length = unit(.25, 'cm')
+  ) +
+  scale_x_datetime(date_labels = '%l') +
+  scale_y_continuous(labels = number_format()) +
+  scale_color_manual('', values = bupr) +
+  labs(x = '', y = 'Usage (KwH\n')
+
+```
+
+```{r fig5, fig.align="center"}
+
+dplyr::group_by(usage_data, hour, time_local, weekday, season) %>%
+  summarize(usage = mean(usage, na.rm = TRUE)) %>%
+  ungroup() %>%
+  ggplot(aes(x = factor(weekday, levels = days), y = usage, color = season)) +
+  geom_jitter(size = 1.5, width = 0.15) +
+  theme_minimal() +
+  theme(
+    text = element_text(
+      family = 'Roboto Condensed',
+      color = 'black',
+      size = 12
+    ),
+    plot.caption = element_text(hjust = 0.5, size = 10.5),
+    legend.position = 'bottom',
+    axis.ticks.length = unit(.25, 'cm')
+  ) +
+  scale_y_continuous(labels = number_format()) +
+  scale_color_manual('', values = c(french, prussian, english_violet, lapis)) +
+  labs(x = '', y = 'Usage (KwH)\n')
+```
+
+```{r fig6, fig.align="center"}
+
+ggplot(usage, aes(
+  x = factor(weekday, levels = days),
+  y = usage,
+  color = factor(season, levels = c('Fall', 'Winter', 'Spring', 'Summer'))
+)) +
+  geom_jitter(size = 1.5, width = 0.15) +
+  theme_ipsum() +
+  theme(
+    text = element_text(
+      family = 'Roboto Condensed',
+      color = 'black',
+      size = 12
+    ),
+    plot.caption = element_text(hjust = 0.5, size = 10.5),
+    legend.position = 'bottom',
+    axis.ticks.length = unit(.25, 'cm')
+  ) +
+  scale_y_continuous(labels = number_format(), breaks = seq(0, 120, by = 20)) +
+  scale_color_manual('', values = c(french, prussian, english_violet, lapis)) +
+  labs(x = '', y = 'Usage (KwH\n')
+```
+
+```{r fig7, fig.align="center"}
+
+ggplot(usage, aes(
+  x = factor(season, levels = c('Fall', 'Winter', 'Spring', 'Summer')),
+  y = usage,
+  fill = season,
+  color = factor(year))) +
+  #  geom_boxplot(width = 0.4) +
+  stat_boxplot(geom = 'errorbar',
+               color = 'black',
+               width = 0.4) +
+  geom_jitter(width = 0.15) +
+  scale_fill_manual('', values = c(french, prussian, english_violet, lapis))  +
+  scale_color_manual('', values = c(french, prussian, english_violet, lapis))  +
+  theme_minimal() +
+  theme(
+    text = element_text(
+      family = 'Roboto Condensed',
+      color = 'black',
+      size = 12
+    ),
+    plot.caption = element_text(hjust = 0.5, size = 10.5),
+    legend.position = 'bottom',
+    axis.ticks.length = unit(.25, 'cm')
+  ) +
+  scale_y_continuous(breaks = seq(0, 120, by = 20)) +
+  guides(fill = 'none') + 
+  labs(x = '', y = 'Usage (KwH)\n')
+```
