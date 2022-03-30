@@ -60,12 +60,12 @@ burnished.brown <- "#AB8476"
 
 ggthemr(palette = "pale")
 
-files = list.files(path = "./data/PSE/", pattern = ".csv", full.names = TRUE)
+files = list.files(path = "./GitHub/pse_energy_use/data/load/", pattern = ".csv", full.names = TRUE)
 data <-  do.call(rbind, lapply(files, read_csv)) %>% janitor::clean_names()
-weather <- read_csv("./data/temps_seattle.csv") %>% select(date, precp, tmax, tmin)
+weather <- read_csv("./GitHub/pse_energy_use/data/temps_seattle.csv") %>% janitor::clean_names() %>% select(date, prcp, tmax, tmin)
 data <- select(data, date, time = start_time, usage)
 data <- mutate(data, date = mdy(date))
-weather <- mutate(weather, date = mdy(date))
+weather <- mutate(weather, date = ymd(date))
 
 
 days <- c("Monday", "Tuesday", "Wednesday", "Thursday", "Friday", "Saturday", "Sunday")
@@ -91,8 +91,8 @@ data <- mutate(data, datetime = with(data, ymd(date) + hms(time)))
 data <- mutate(data, hour = hour(datetime))
 data <- mutate(data, monthday = format(date, "%m-%d"))
 data <- mutate(data, time_local = as_hms(floor_date(datetime, unit = "hour"))) %>% 
-  mutate(month = months(date),
-         weekday = weekdays(date))
+  mutate(month = months(date, abbreviate = FALSE),
+         weekday = weekdays(date, abbreviate = FALSE))
 #
 # data <-
 #   mutate(
@@ -176,14 +176,14 @@ usage_data <- dplyr::group_by(data, date, hour, time_local, month, weekday, seas
   left_join(weather, by = "date") %>% 
   mutate(year = year(date))
 
-write_csv(usage_data, "./data/usage_data.csv")
+write_csv(usage_data, "./GitHub/pse_energy_use/data/usage_data.csv")
 
 usage <- dplyr::group_by(data, date, month, weekday, season) %>% 
   dplyr::summarize(usage = sum(usage, na.rm = TRUE)) %>%
   left_join(weather, by = "date") %>%
   mutate(year = year(date))
 
-write_csv(usage, "./data/usage_summarized.csv")
+write_csv(usage, "./GitHub/pse_energy_use/data/usage_summarized.csv")
 
 breaks <- unique(as.POSIXct(data$time_local))
 
@@ -192,7 +192,7 @@ dplyr::group_by(usage_data, date) %>%
   ungroup() %>%
   ggplot(aes(x = date, y = usage)) +
   geom_col(aes(color = "Usage"),
-           fill = french,
+           fill = pale_mint,
            width = 0.75) +
   geom_line(aes(y = zoo::rollmean(usage, k = 14, fill = NA),  color = "Rolling Average"), size = 0.75) +
   theme_minimal() +
@@ -206,10 +206,10 @@ dplyr::group_by(usage_data, date) %>%
     legend.position = "bottom",
     axis.ticks.length = unit(.25, "cm")
   ) +
-  scale_color_manual("", values = c("Usage" = french, "Rolling Average" = prussian)) +
+  scale_color_manual("", values = c("Usage" = pale_mint, "Rolling Average" = prussian)) +
   scale_x_date(date_labels = "%B, %Y") + 
   scale_y_continuous(labels = number_format(), breaks = seq(0, 120, by = 20)) +
-  labs(x = "", y = "Usage (Kilowatt per hour)\n")
+  labs(x = "", y = "Usage (Kilowatt per hour)\n", fill = "")
 
 
 dplyr::group_by(usage_data, date) %>%
@@ -275,7 +275,7 @@ dplyr::group_by(usage_data, hour, time_local, weekday) %>%
   ) +
   scale_x_datetime(date_labels = "%l") +
   scale_y_continuous(labels = number_format()) +
-  scale_color_manual("", values = bupr) +
+  scale_color_manual("", values = c(french, prussian, burnished.brown, lapis, english_violet, cherry, maroon)) +
   labs(x = "", y = "Usage (Kilowatt per hour\n")
 
 
@@ -296,7 +296,7 @@ dplyr::group_by(usage_data, hour, time_local, weekday, season) %>%
     axis.ticks.length = unit(.25, "cm")
   ) +
   scale_y_continuous(labels = number_format()) +
-  scale_color_manual("", values = bupr) +
+  scale_color_manual("", values = c(french, prussian, lapis, english_violet)) +
   labs(x = "", y = "Usage (Kilowatt per hour)\n")
 
 
